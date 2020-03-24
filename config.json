@@ -1,5 +1,8 @@
 {
 	"prefix": "!",
 	"defaultRoundTime": 40,
-	"signupChannel": "691615001542131776"
+	"signupChannel": "691615001542131776",
+	"timerChannel": "691597646925791233",
+	"toRole": "691952442019020811",
+	"participantRole": "691952301555843123"
 }

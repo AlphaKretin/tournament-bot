@@ -1,6 +1,7 @@
-import { Message } from "eris";
+import { Message, TextChannel } from "eris";
 import { trimArgs } from "../modules/utils";
-import { defaultRoundTime } from "../config.json";
+import { defaultRoundTime, participantRole, timerChannel } from "../config.json";
+import { bot } from "../modules/bot";
 
 function formatTime(secs: number): string {
 	const minutes = Math.floor(secs / 60);
@@ -16,16 +17,22 @@ export async function timer(msg: Message): Promise<void> {
 		time = num;
 	}
 	let seconds = time * 60;
-	const mes = await msg.channel.createMessage("**Time left in the round**: `" + formatTime(seconds) + "`");
+	const chan = bot.getChannel(timerChannel);
+	if (!(chan instanceof TextChannel)) {
+		return;
+	}
+	const mes = await chan.createMessage("**Time left in the round**: `" + formatTime(seconds) + "`");
 	const interval = setInterval(async () => {
 		seconds -= 5;
-		if (seconds === 10 * 60) {
-			await mes.channel.createMessage("10 minutes left in the round!");
+		if (seconds === 5 * 60) {
+			await chan.createMessage("5 minutes left in the round! <@&" + participantRole + ">");
 		}
 		if (seconds === 0) {
 			clearInterval(interval);
-			await mes.channel.createMessage(
-				"That's time in the round! Finish your current phase, then the player with higher LP is the winner. Please report your results to the tournament organiser."
+			await chan.createMessage(
+				"That's time in the round! Finish your current phase, then the player with higher LP is the winner. Please report your results to the tournament organiser.  <@&" +
+					participantRole +
+					">"
 			);
 		}
 		await mes.edit("**Time left in the round**: `" + formatTime(seconds) + "`");

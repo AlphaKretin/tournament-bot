@@ -1,7 +1,7 @@
 import { Message, GuildChannel, TextChannel } from "eris";
 import { bot } from "./bot";
-import { addReactionButton } from "../modules/reactionButtons";
-import { signupChannel } from "../config.json";
+import { addReactionButton, removeButtons } from "../modules/reactionButtons";
+import { signupChannel, participantRole } from "../config.json";
 
 interface UserRegistration {
 	channel: string;
@@ -25,8 +25,11 @@ export class Tournament {
 				name = user.username;
 				if (this.msg.channel instanceof GuildChannel) {
 					const member = this.msg.channel.guild.members.get(userID);
-					if (member && member.nick) {
-						name = member.nick;
+					if (member) {
+						if (member.nick) {
+							name = member.nick;
+						}
+						await member.addRole(participantRole);
 					}
 				}
 			}
@@ -43,30 +46,60 @@ export class Tournament {
 			const userReg = this.users[userID];
 			await bot.deleteMessage(userReg.channel, userReg.message);
 			delete this.users[userID];
+			if (this.msg.channel instanceof GuildChannel) {
+				const member = this.msg.channel.guild.members.get(userID);
+				if (member) {
+					await member.removeRole(participantRole);
+				}
+			}
 		}
+	}
+
+	public async destruct(): Promise<void> {
+		await removeButtons(this.msg);
+		if (this.msg.channel instanceof GuildChannel) {
+			for (const user of Object.keys(this.users)) {
+				const member = this.msg.channel.guild.members.get(user);
+				if (member) {
+					await member.removeRole(participantRole);
+				}
+			}
+		}
+		await this.msg.unpin();
 	}
 }
 
-const tournaments: { [message: string]: Tournament } = {};
+let currentTournament: Tournament | undefined;
 
 export async function addTournament(message: string): Promise<Tournament | undefined> {
 	const suChan = bot.getChannel(signupChannel);
-	if (!(suChan instanceof TextChannel)) {
+	if (!(suChan instanceof TextChannel) || currentTournament) {
 		return;
 	}
 	const mes = await suChan.createMessage(message + "\n__Click ✅ below to sign up for this tournament!__");
-	tournaments[mes.id] = new Tournament(mes);
+	currentTournament = new Tournament(mes);
 	addReactionButton(
 		mes,
 		"✅",
 		async (_, userID: string) => {
-			await tournaments[mes.id].addUser(userID);
+			if (currentTournament) {
+				await currentTournament.addUser(userID);
+			}
 		},
 		async (_, userID: string) => {
-			await tournaments[mes.id].removeUser(userID);
+			if (currentTournament) {
+				await currentTournament.removeUser(userID);
+			}
 		},
 		true
 	);
 	await mes.pin();
-	return tournaments[mes.id];
+	return currentTournament;
+}
+
+export async function removeTournament(): Promise<void> {
+	if (currentTournament) {
+		await currentTournament.destruct();
+		currentTournament = undefined;
+	}
 }

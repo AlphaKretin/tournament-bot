@@ -1,20 +1,20 @@
-import { Message, GuildChannel } from "eris";
-import { prefix } from "./config.json";
+import { Message } from "eris";
+import { prefix, toRole } from "./config.json";
 import { timer } from "./commands/timer";
 import { trimCommand } from "./modules/utils";
-import { signup } from "./commands/signup";
+import { signup, close } from "./commands/signup";
 import { bot } from "./modules/bot";
 
 interface Command {
 	name: string;
 	func: (msg: Message) => Promise<void>;
-	check: (msg: Message) => Promise<boolean>;
+	check: (msg: Message) => boolean;
 }
 
-async function toCheck(msg: Message): Promise<boolean> {
+function toCheck(msg: Message): boolean {
 	const member = msg.member;
 	if (member) {
-		return member.permission.has("manageMessages");
+		return member.roles.includes(toRole);
 	}
 	return false;
 }
@@ -28,6 +28,11 @@ const commands: Command[] = [
 	{
 		name: "signup",
 		func: signup,
+		check: toCheck
+	},
+	{
+		name: "close",
+		func: close,
 		check: toCheck
 	}
 ];
