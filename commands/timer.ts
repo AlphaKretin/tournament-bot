@@ -1,4 +1,4 @@
-import Eris from "eris";
+import { Message } from "eris";
 import { trimArgs } from "../modules/utils";
 import { defaultRoundTime } from "../config.json";
 
@@ -8,7 +8,7 @@ function formatTime(secs: number): string {
 	return minutes + ":" + seconds.toString().padStart(2, "0");
 }
 
-export async function timer(msg: Eris.Message): Promise<void> {
+export async function timer(msg: Message): Promise<void> {
 	const args = trimArgs(msg);
 	let time = defaultRoundTime;
 	const num = parseInt(args);
