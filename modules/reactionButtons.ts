@@ -7,16 +7,29 @@ type ReactionFunc = (msg: Message, userID: string) => Promise<void | MessageCont
 class ReactionButton {
 	public name: string;
 	private func: ReactionFunc;
+	private remFunc?: ReactionFunc;
 	private hostMsg: Message;
-	constructor(msg: Message, emoji: string, fun: ReactionFunc) {
+	constructor(msg: Message, emoji: string, fun: ReactionFunc, remFun?: ReactionFunc) {
 		this.hostMsg = msg;
 		this.func = fun;
+		if (remFun) {
+			this.remFunc = remFun;
+		}
 		this.name = emoji;
 	}
 	public async execute(userID: string): Promise<void> {
 		const result = await this.func(this.hostMsg, userID);
 		if (result !== undefined) {
 			await this.hostMsg.edit(result);
+		}
+	}
+
+	public async remExecute(userID: string): Promise<void> {
+		if (this.remFunc) {
+			const result = await this.remFunc(this.hostMsg, userID);
+			if (result !== undefined) {
+				await this.hostMsg.edit(result);
+			}
 		}
 	}
 
@@ -48,10 +61,11 @@ export async function addReactionButton(
 	msg: Message,
 	emoji: string,
 	func: ReactionFunc,
+	remFunc?: ReactionFunc,
 	permanent = false
 ): Promise<void> {
 	await msg.addReaction(emoji);
-	const button = new ReactionButton(msg, emoji, func);
+	const button = new ReactionButton(msg, emoji, func, remFunc);
 	if (!(msg.id in reactionButtons)) {
 		reactionButtons[msg.id] = {};
 	}
@@ -72,5 +86,14 @@ bot.on("messageReactionAdd", async (msg: PossiblyUncachedMessage, emoji: Emoji, 
 	}
 	if (reactionButtons[msg.id] && reactionButtons[msg.id][emoji.name]) {
 		await reactionButtons[msg.id][emoji.name].execute(userID);
+	}
+});
+
+bot.on("messageReactionRemove", async (msg: PossiblyUncachedMessage, emoji: Emoji, userID: string) => {
+	if (userID === bot.user.id) {
+		return;
+	}
+	if (reactionButtons[msg.id] && reactionButtons[msg.id][emoji.name]) {
+		await reactionButtons[msg.id][emoji.name].remExecute(userID);
 	}
 });
