@@ -1,6 +1,6 @@
 import { Message } from "eris";
 import { prefix, toRole } from "./config.json";
-import { timer } from "./commands/timer";
+import { timer, cancel } from "./commands/timer";
 import { trimCommand } from "./modules/utils";
 import { signup, close } from "./commands/signup";
 import { bot } from "./modules/bot";
@@ -33,6 +33,11 @@ const commands: Command[] = [
 	{
 		name: "close",
 		func: close,
+		check: toCheck
+	},
+	{
+		name: "cancel",
+		func: cancel,
 		check: toCheck
 	}
 ];

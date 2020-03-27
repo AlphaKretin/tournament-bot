@@ -3,38 +3,88 @@ import { trimArgs } from "../modules/utils";
 import { defaultRoundTime, participantRole, timerChannel } from "../config.json";
 import { bot } from "../modules/bot";
 
-function formatTime(secs: number): string {
-	const minutes = Math.floor(secs / 60);
-	const seconds = secs % 60;
-	return minutes + ":" + seconds.toString().padStart(2, "0");
-}
+let curTimer: Timer | undefined;
 
-export async function timer(msg: Message): Promise<void> {
-	const args = trimArgs(msg);
-	let time = defaultRoundTime;
-	const num = parseInt(args);
-	if (!isNaN(num)) {
-		time = num;
+class Timer {
+	private time: number;
+	private mes: Message | undefined;
+	private chan = bot.getChannel(timerChannel);
+	private interval: NodeJS.Timeout | undefined;
+	constructor(mins: number) {
+		this.time = mins * 60;
+		this.start();
 	}
-	let seconds = time * 60;
-	const chan = bot.getChannel(timerChannel);
-	if (!(chan instanceof TextChannel)) {
-		return;
+
+	private formatTime(): string {
+		const minutes = Math.floor(this.time / 60);
+		const seconds = this.time % 60;
+		return minutes + ":" + seconds.toString().padStart(2, "0");
 	}
-	const mes = await chan.createMessage("**Time left in the round**: `" + formatTime(seconds) + "`");
-	const interval = setInterval(async () => {
-		seconds -= 5;
-		if (seconds === 5 * 60) {
-			await chan.createMessage("5 minutes left in the round! <@&" + participantRole + ">");
+
+	private async start(): Promise<void> {
+		if (!(this.chan instanceof TextChannel)) {
+			await this.finish();
+			return;
 		}
-		if (seconds === 0) {
-			clearInterval(interval);
-			await chan.createMessage(
+		this.mes = await this.chan.createMessage("**Time left in the round**: `" + this.formatTime() + "`");
+		this.interval = setInterval(() => {
+			// arrow function to not rebind "this"
+			this.tick();
+		}, 5000);
+	}
+
+	private async tick(): Promise<void> {
+		if (!(this.chan instanceof TextChannel) || !this.mes) {
+			await this.finish();
+			return;
+		}
+		this.time -= 5;
+		if (this.time === 5 * 60) {
+			await this.chan.createMessage("5 minutes left in the round! <@&" + participantRole + ">");
+		}
+		if (this.time === 0) {
+			await this.finish();
+		}
+		await this.mes.edit("**Time left in the round**: `" + this.formatTime() + "`");
+	}
+
+	private async finish(): Promise<void> {
+		if (this.chan instanceof TextChannel && this.interval) {
+			clearInterval(this.interval);
+			await this.chan.createMessage(
 				"That's time in the round! Finish your current phase, then the player with higher LP is the winner. Please report your results to the tournament organiser.  <@&" +
 					participantRole +
 					">"
 			);
 		}
-		await mes.edit("**Time left in the round**: `" + formatTime(seconds) + "`");
-	}, 5000);
+		curTimer = undefined;
+	}
+
+	public async abort(): Promise<void> {
+		if (this.interval) {
+			clearInterval(this.interval);
+		}
+		if (this.chan instanceof TextChannel) {
+			await this.chan.createMessage("The current round has finished early.");
+		}
+		curTimer = undefined;
+	}
+}
+
+export async function timer(msg: Message): Promise<void> {
+	if (!curTimer) {
+		const args = trimArgs(msg);
+		let time = defaultRoundTime;
+		const num = parseInt(args);
+		if (!isNaN(num)) {
+			time = num;
+		}
+		curTimer = new Timer(time);
+	}
+}
+
+export async function cancel(): Promise<void> {
+	if (curTimer) {
+		await curTimer.abort();
+	}
 }
